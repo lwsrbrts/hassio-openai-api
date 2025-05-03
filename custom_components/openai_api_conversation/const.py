@@ -2,7 +2,7 @@
 
 import logging
 
-DOMAIN = "openai_conversation"
+DOMAIN = "openai_api_conversation"
 LOGGER: logging.Logger = logging.getLogger(__package__)
 
 CONF_CHAT_MODEL = "chat_model"
@@ -21,6 +21,10 @@ CONF_WEB_SEARCH_CITY = "city"
 CONF_WEB_SEARCH_REGION = "region"
 CONF_WEB_SEARCH_COUNTRY = "country"
 CONF_WEB_SEARCH_TIMEZONE = "timezone"
+CONF_CUSTOM_ENDPOINT = "custom_endpoint"
+CONF_BASE_URL = "base_url"
+CONF_ORGANIZATION_ID = "organization_id"
+
 RECOMMENDED_CHAT_MODEL = "gpt-4o-mini"
 RECOMMENDED_MAX_TOKENS = 150
 RECOMMENDED_REASONING_EFFORT = "low"
@@ -29,6 +33,9 @@ RECOMMENDED_TOP_P = 1.0
 RECOMMENDED_WEB_SEARCH = False
 RECOMMENDED_WEB_SEARCH_CONTEXT_SIZE = "medium"
 RECOMMENDED_WEB_SEARCH_USER_LOCATION = False
+RECOMMENDED_CUSTOM_ENDPOINT = False
+RECOMMENDED_BASE_URL = "https://api.openai.com/v1"
+RECOMMENDED_ORGANIZATION_ID = ""
 
 UNSUPPORTED_MODELS: list[str] = [
     "o1-mini",

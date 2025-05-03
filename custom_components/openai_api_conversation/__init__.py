@@ -38,6 +38,9 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_CHAT_MODEL,
+    CONF_CUSTOM_ENDPOINT,
+    CONF_BASE_URL,
+    CONF_ORGANIZATION_ID,
     CONF_FILENAMES,
     CONF_MAX_TOKENS,
     CONF_PROMPT,
@@ -46,8 +49,10 @@ from .const import (
     CONF_TOP_P,
     DOMAIN,
     LOGGER,
+    RECOMMENDED_BASE_URL,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_MAX_TOKENS,
+    RECOMMENDED_ORGANIZATION_ID,
     RECOMMENDED_REASONING_EFFORT,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TOP_P,
@@ -244,10 +249,19 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: OpenAIConfigEntry) -> bool:
     """Set up OpenAI Conversation from a config entry."""
-    client = openai.AsyncOpenAI(
-        api_key=entry.data[CONF_API_KEY],
-        http_client=get_async_client(hass),
-    )
+    client_kwargs = {
+        "api_key": entry.data[CONF_API_KEY],
+        "http_client": get_async_client(hass),
+    }
+    
+    # Add custom endpoint configurations if enabled
+    if entry.data.get(CONF_CUSTOM_ENDPOINT, False):
+        if entry.data.get(CONF_BASE_URL):
+            client_kwargs["base_url"] = entry.data[CONF_BASE_URL]
+        if entry.data.get(CONF_ORGANIZATION_ID):
+            client_kwargs["organization"] = entry.data[CONF_ORGANIZATION_ID]
+    
+    client = openai.AsyncOpenAI(**client_kwargs)
 
     # Cache current platform data which gets added to each request (caching done by library)
     _ = await hass.async_add_executor_job(client.platform_headers)

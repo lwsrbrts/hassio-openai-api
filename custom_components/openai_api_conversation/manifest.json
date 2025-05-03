@@ -1,0 +1,13 @@
+{
+  "domain": "openai_api_conversation",
+  "name": "OpenAI API Conversation",
+  "after_dependencies": ["assist_pipeline", "intent"],
+  "codeowners": ["@lwsrbrts"],
+  "config_flow": true,
+  "dependencies": ["conversation"],
+  "documentation": "https://github.com/lwsrbrts/hassio-openai-api",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": ["openai==1.76.2"],
+  "version": "1.0.0"
+}

@@ -41,6 +41,9 @@ from homeassistant.helpers.typing import VolDictType
 
 from .const import (
     CONF_CHAT_MODEL,
+    CONF_CUSTOM_ENDPOINT,
+    CONF_BASE_URL,
+    CONF_ORGANIZATION_ID,
     CONF_MAX_TOKENS,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
@@ -55,8 +58,11 @@ from .const import (
     CONF_WEB_SEARCH_TIMEZONE,
     CONF_WEB_SEARCH_USER_LOCATION,
     DOMAIN,
+    RECOMMENDED_BASE_URL,
     RECOMMENDED_CHAT_MODEL,
+    RECOMMENDED_CUSTOM_ENDPOINT,
     RECOMMENDED_MAX_TOKENS,
+    RECOMMENDED_ORGANIZATION_ID,
     RECOMMENDED_REASONING_EFFORT,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TOP_P,
@@ -72,6 +78,9 @@ _LOGGER = logging.getLogger(__name__)
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_API_KEY): str,
+        vol.Optional(CONF_CUSTOM_ENDPOINT, default=False): bool,
+        vol.Optional(CONF_BASE_URL, default=RECOMMENDED_BASE_URL): str,
+        vol.Optional(CONF_ORGANIZATION_ID): str,
     }
 )
 
@@ -79,6 +88,9 @@ RECOMMENDED_OPTIONS = {
     CONF_RECOMMENDED: True,
     CONF_LLM_HASS_API: llm.LLM_API_ASSIST,
     CONF_PROMPT: llm.DEFAULT_INSTRUCTIONS_PROMPT,
+    CONF_CUSTOM_ENDPOINT: RECOMMENDED_CUSTOM_ENDPOINT,
+    CONF_BASE_URL: RECOMMENDED_BASE_URL,
+    CONF_ORGANIZATION_ID: RECOMMENDED_ORGANIZATION_ID,
 }
 
 
@@ -87,9 +99,18 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
-    client = openai.AsyncOpenAI(
-        api_key=data[CONF_API_KEY], http_client=get_async_client(hass)
-    )
+    client_kwargs = {
+        "api_key": data[CONF_API_KEY],
+        "http_client": get_async_client(hass),
+    }
+    
+    if data.get(CONF_CUSTOM_ENDPOINT, False):
+        if data.get(CONF_BASE_URL):
+            client_kwargs["base_url"] = data[CONF_BASE_URL]
+        if data.get(CONF_ORGANIZATION_ID):
+            client_kwargs["organization"] = data[CONF_ORGANIZATION_ID]
+    
+    client = openai.AsyncOpenAI(**client_kwargs)
     await hass.async_add_executor_job(client.with_options(timeout=10.0).models.list)
 
 
@@ -193,10 +214,19 @@ class OpenAIOptionsFlow(OptionsFlow):
         location_data: dict[str, str] = {}
         zone_home = self.hass.states.get(ENTITY_ID_HOME)
         if zone_home is not None:
-            client = openai.AsyncOpenAI(
-                api_key=self.config_entry.data[CONF_API_KEY],
-                http_client=get_async_client(self.hass),
-            )
+            client_kwargs = {
+                "api_key": self.config_entry.data[CONF_API_KEY],
+                "http_client": get_async_client(self.hass),
+            }
+            
+            # Add custom endpoint configurations if enabled
+            if self.config_entry.data.get(CONF_CUSTOM_ENDPOINT, False):
+                if self.config_entry.data.get(CONF_BASE_URL):
+                    client_kwargs["base_url"] = self.config_entry.data[CONF_BASE_URL]
+                if self.config_entry.data.get(CONF_ORGANIZATION_ID):
+                    client_kwargs["organization"] = self.config_entry.data[CONF_ORGANIZATION_ID]
+            
+            client = openai.AsyncOpenAI(**client_kwargs)
             location_schema = vol.Schema(
                 {
                     vol.Optional(
@@ -312,6 +342,21 @@ def openai_config_option_schema(
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
+            vol.Optional(
+                CONF_CUSTOM_ENDPOINT,
+                description={"suggested_value": options.get(CONF_CUSTOM_ENDPOINT)},
+                default=RECOMMENDED_CUSTOM_ENDPOINT,
+            ): bool,
+            vol.Optional(
+                CONF_BASE_URL,
+                description={"suggested_value": options.get(CONF_BASE_URL)},
+                default=RECOMMENDED_BASE_URL,
+            ): str,
+            vol.Optional(
+                CONF_ORGANIZATION_ID,
+                description={"suggested_value": options.get(CONF_ORGANIZATION_ID)},
+                default=RECOMMENDED_ORGANIZATION_ID,
+            ): str,
             vol.Optional(
                 CONF_WEB_SEARCH,
                 description={"suggested_value": options.get(CONF_WEB_SEARCH)},

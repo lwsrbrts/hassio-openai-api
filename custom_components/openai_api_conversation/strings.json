@@ -3,8 +3,12 @@
     "step": {
       "user": {
         "data": {
-          "api_key": "[%key:common::config_flow::data::api_key%]"
-        }
+          "api_key": "[%key:common::config_flow::data::api_key%]",
+          "custom_endpoint": "Use custom API endpoint",
+          "base_url": "Base URL",
+          "organization_id": "Organization ID"
+        },
+        "description": "Set up OpenAI Conversation with custom API endpoint support"
       }
     },
     "error": {
@@ -27,14 +31,20 @@
           "reasoning_effort": "Reasoning effort",
           "web_search": "Enable web search",
           "search_context_size": "Search context size",
-          "user_location": "Include home location"
+          "user_location": "Include home location",
+          "custom_endpoint": "Use custom API endpoint",
+          "base_url": "Base URL",
+          "organization_id": "Organization ID"
         },
         "data_description": {
           "prompt": "Instruct how the LLM should respond. This can be a template.",
           "reasoning_effort": "How many reasoning tokens the model should generate before creating a response to the prompt (for certain reasoning models)",
           "web_search": "Allow the model to search the web for the latest information before generating a response",
           "search_context_size": "High level guidance for the amount of context window space to use for the search",
-          "user_location": "Refine search results based on geography"
+          "user_location": "Refine search results based on geography",
+          "custom_endpoint": "Enable use of alternative OpenAI-compatible API endpoints",
+          "base_url": "The base URL for the API endpoint (e.g., https://openrouter.ai/api/v1)",
+          "organization_id": "Optional organization ID if required by your API endpoint"
         }
       }
     },
