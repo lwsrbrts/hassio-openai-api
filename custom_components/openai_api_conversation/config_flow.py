@@ -86,7 +86,6 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 # Default recommended options
 DEFAULT_RECOMMENDED_OPTIONS = {
-    CONF_RECOMMENDED: True,
     CONF_LLM_HASS_API: llm.LLM_API_ASSIST,
     CONF_PROMPT: llm.DEFAULT_INSTRUCTIONS_PROMPT,
     CONF_CUSTOM_ENDPOINT: RECOMMENDED_CUSTOM_ENDPOINT,
@@ -144,6 +143,10 @@ class OpenAIConfigFlow(ConfigFlow, domain=DOMAIN):
             # Create recommended options with user-provided custom endpoint values
             recommended_options = DEFAULT_RECOMMENDED_OPTIONS.copy()
             
+            # Determine if we should use recommended settings
+            is_using_recommended = not user_input.get(CONF_CUSTOM_ENDPOINT, False)
+            recommended_options[CONF_RECOMMENDED] = is_using_recommended
+            
             # Use the user's custom endpoint configuration if provided
             if user_input.get(CONF_CUSTOM_ENDPOINT, False):
                 recommended_options[CONF_CUSTOM_ENDPOINT] = True
@@ -175,16 +178,24 @@ class OpenAIOptionsFlow(OptionsFlow):
 
     def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize options flow."""
-        self.last_rendered_recommended = config_entry.options.get(
-            CONF_RECOMMENDED, False
-        )
-        self.config_entry = config_entry
+        # Determine if this config entry is actually using recommended settings
+        is_using_recommended = config_entry.options.get(CONF_RECOMMENDED, False)
+        
+        # If using custom endpoint, ensure recommended is marked as False
+        if config_entry.data.get(CONF_CUSTOM_ENDPOINT, False) or config_entry.options.get(CONF_CUSTOM_ENDPOINT, False):
+            is_using_recommended = False
+        
+        self.last_rendered_recommended = is_using_recommended
+        # Store config entry data and options instead of the entry object
+        self.entry_data = dict(config_entry.data)
+        self.entry_options = dict(config_entry.options)
+        self.entry_id = config_entry.entry_id
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage the options."""
-        options: dict[str, Any] | MappingProxyType[str, Any] = self.config_entry.options
+        options: dict[str, Any] | MappingProxyType[str, Any] = self.entry_options
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -215,7 +226,16 @@ class OpenAIOptionsFlow(OptionsFlow):
                     CONF_LLM_HASS_API: user_input.get(CONF_LLM_HASS_API),
                 }
 
-        schema = openai_config_option_schema(self.hass, options, self.config_entry)
+        # Create a temporary ConfigEntry-like object for schema generation
+        from dataclasses import dataclass
+        
+        @dataclass
+        class TempConfigEntry:
+            data: dict
+            options: dict
+            
+        temp_entry = TempConfigEntry(data=self.entry_data, options=self.entry_options)
+        schema = openai_config_option_schema(self.hass, options, temp_entry)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(schema),
@@ -228,16 +248,16 @@ class OpenAIOptionsFlow(OptionsFlow):
         zone_home = self.hass.states.get(ENTITY_ID_HOME)
         if zone_home is not None:
             client_kwargs = {
-                "api_key": self.config_entry.data[CONF_API_KEY],
+                "api_key": self.entry_data[CONF_API_KEY],
                 "http_client": get_async_client(self.hass),
             }
             
             # Add custom endpoint configurations if enabled
-            if self.config_entry.data.get(CONF_CUSTOM_ENDPOINT, False):
-                if self.config_entry.data.get(CONF_BASE_URL):
-                    client_kwargs["base_url"] = self.config_entry.data[CONF_BASE_URL]
-                if self.config_entry.data.get(CONF_ORGANIZATION_ID):
-                    client_kwargs["organization"] = self.config_entry.data[CONF_ORGANIZATION_ID]
+            if self.entry_data.get(CONF_CUSTOM_ENDPOINT, False):
+                if self.entry_data.get(CONF_BASE_URL):
+                    client_kwargs["base_url"] = self.entry_data[CONF_BASE_URL]
+                if self.entry_data.get(CONF_ORGANIZATION_ID):
+                    client_kwargs["organization"] = self.entry_data[CONF_ORGANIZATION_ID]
             
             client = openai.AsyncOpenAI(**client_kwargs)
             location_schema = vol.Schema(

@@ -328,7 +328,7 @@ class OpenAIConversationEntity(
             "http_client": get_async_client(self.hass),
         }
         
-        # Use the custom endpoint from options if enabled
+        # First check if custom endpoint is enabled in options
         if options.get(CONF_CUSTOM_ENDPOINT, False):
             if options.get(CONF_BASE_URL):
                 client_kwargs["base_url"] = options.get(CONF_BASE_URL)
