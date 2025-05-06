@@ -35,11 +35,12 @@ from voluptuous_openapi import convert
 
 from homeassistant.components import assist_pipeline, conversation
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_LLM_HASS_API, MATCH_ALL
+from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API, MATCH_ALL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, intent, llm
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.httpx_client import get_async_client
 
 from . import OpenAIConfigEntry
 from .const import (
@@ -321,7 +322,26 @@ class OpenAIConversationEntity(
             for m in _convert_content_to_param(content)
         ]
 
-        client = self.entry.runtime_data
+        # Create a new client with the current custom endpoint options
+        client_kwargs = {
+            "api_key": self.entry.data[CONF_API_KEY],
+            "http_client": get_async_client(self.hass),
+        }
+        
+        # Use the custom endpoint from options if enabled
+        if options.get(CONF_CUSTOM_ENDPOINT, False):
+            if options.get(CONF_BASE_URL):
+                client_kwargs["base_url"] = options.get(CONF_BASE_URL)
+            if options.get(CONF_ORGANIZATION_ID):
+                client_kwargs["organization"] = options.get(CONF_ORGANIZATION_ID)
+        # Fall back to data settings if not in options
+        elif self.entry.data.get(CONF_CUSTOM_ENDPOINT, False):
+            if self.entry.data.get(CONF_BASE_URL):
+                client_kwargs["base_url"] = self.entry.data[CONF_BASE_URL]
+            if self.entry.data.get(CONF_ORGANIZATION_ID):
+                client_kwargs["organization"] = self.entry.data[CONF_ORGANIZATION_ID]
+        
+        client = openai.AsyncOpenAI(**client_kwargs)
 
         # To prevent infinite loops, we limit the number of iterations
         for _iteration in range(MAX_TOOL_ITERATIONS):
