@@ -84,7 +84,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
-RECOMMENDED_OPTIONS = {
+# Default recommended options
+DEFAULT_RECOMMENDED_OPTIONS = {
     CONF_RECOMMENDED: True,
     CONF_LLM_HASS_API: llm.LLM_API_ASSIST,
     CONF_PROMPT: llm.DEFAULT_INSTRUCTIONS_PROMPT,
@@ -140,10 +141,21 @@ class OpenAIConfigFlow(ConfigFlow, domain=DOMAIN):
             _LOGGER.exception("Unexpected exception")
             errors["base"] = "unknown"
         else:
+            # Create recommended options with user-provided custom endpoint values
+            recommended_options = DEFAULT_RECOMMENDED_OPTIONS.copy()
+            
+            # Use the user's custom endpoint configuration if provided
+            if user_input.get(CONF_CUSTOM_ENDPOINT, False):
+                recommended_options[CONF_CUSTOM_ENDPOINT] = True
+                if CONF_BASE_URL in user_input:
+                    recommended_options[CONF_BASE_URL] = user_input[CONF_BASE_URL]
+                if CONF_ORGANIZATION_ID in user_input and user_input[CONF_ORGANIZATION_ID]:
+                    recommended_options[CONF_ORGANIZATION_ID] = user_input[CONF_ORGANIZATION_ID]
+            
             return self.async_create_entry(
                 title="ChatGPT",
                 data=user_input,
-                options=RECOMMENDED_OPTIONS,
+                options=recommended_options,
             )
 
         return self.async_show_form(
@@ -166,6 +178,7 @@ class OpenAIOptionsFlow(OptionsFlow):
         self.last_rendered_recommended = config_entry.options.get(
             CONF_RECOMMENDED, False
         )
+        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -202,7 +215,7 @@ class OpenAIOptionsFlow(OptionsFlow):
                     CONF_LLM_HASS_API: user_input.get(CONF_LLM_HASS_API),
                 }
 
-        schema = openai_config_option_schema(self.hass, options)
+        schema = openai_config_option_schema(self.hass, options, self.config_entry)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(schema),
@@ -275,6 +288,7 @@ class OpenAIOptionsFlow(OptionsFlow):
 def openai_config_option_schema(
     hass: HomeAssistant,
     options: Mapping[str, Any],
+    config_entry: ConfigEntry = None,
 ) -> VolDictType:
     """Return a schema for OpenAI completion options."""
     hass_apis: list[SelectOptionDict] = [
@@ -308,6 +322,17 @@ def openai_config_option_schema(
 
     if options.get(CONF_RECOMMENDED):
         return schema
+
+    # If we have a config entry, get the custom endpoint settings from it
+    custom_endpoint = options.get(CONF_CUSTOM_ENDPOINT, RECOMMENDED_CUSTOM_ENDPOINT)
+    base_url = options.get(CONF_BASE_URL, RECOMMENDED_BASE_URL)
+    organization_id = options.get(CONF_ORGANIZATION_ID, RECOMMENDED_ORGANIZATION_ID)
+    
+    # If options don't have values but data does, use those instead
+    if config_entry and not options.get(CONF_BASE_URL) and config_entry.data.get(CONF_CUSTOM_ENDPOINT, False):
+        custom_endpoint = config_entry.data.get(CONF_CUSTOM_ENDPOINT, custom_endpoint)
+        base_url = config_entry.data.get(CONF_BASE_URL, base_url)
+        organization_id = config_entry.data.get(CONF_ORGANIZATION_ID, organization_id)
 
     schema.update(
         {
@@ -345,17 +370,17 @@ def openai_config_option_schema(
             vol.Optional(
                 CONF_CUSTOM_ENDPOINT,
                 description={"suggested_value": options.get(CONF_CUSTOM_ENDPOINT)},
-                default=RECOMMENDED_CUSTOM_ENDPOINT,
+                default=custom_endpoint,
             ): bool,
             vol.Optional(
                 CONF_BASE_URL,
                 description={"suggested_value": options.get(CONF_BASE_URL)},
-                default=RECOMMENDED_BASE_URL,
+                default=base_url,
             ): str,
             vol.Optional(
                 CONF_ORGANIZATION_ID,
                 description={"suggested_value": options.get(CONF_ORGANIZATION_ID)},
-                default=RECOMMENDED_ORGANIZATION_ID,
+                default=organization_id,
             ): str,
             vol.Optional(
                 CONF_WEB_SEARCH,
